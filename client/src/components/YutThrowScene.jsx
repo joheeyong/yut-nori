@@ -352,13 +352,12 @@ function YutThrowScene({ isVisible, phase, onResult, onAllLanded }) {
         shadows
         camera={{ position: [0, 5.5, 6.5], fov: 35, near: 0.1, far: 60 }}
         gl={{
-          antialias: true, alpha: false,
+          antialias: true, alpha: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.0,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
-        style={{ background: '#3A3A3A' }}
-        onCreated={({ gl }) => { gl.setClearColor('#3A3A3A', 1); }}
+        style={{ background: 'transparent' }}
         dpr={[1, 2]}
       >
         <ThrowScene phase={phase} onResult={onResult} onAllLanded={onAllLanded} />
