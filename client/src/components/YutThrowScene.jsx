@@ -160,6 +160,12 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     }
     const capCnt = idx.length - roundCnt - flatCnt;
 
+    // 비주얼을 물리 박스 중심에 맞추기 (y를 radius/2만큼 아래로 이동)
+    const yOffset = -radius / 2;
+    for (let i = 1; i < verts.length; i += 3) {
+      verts[i] += yOffset;
+    }
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norms, 3));
