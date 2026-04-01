@@ -463,12 +463,12 @@
 
 /* 말 애니메이션 */
 .piece-movable {
-  animation: glow 1s ease-in-out infinite alternate;
+  animation: pieceFloat 0.8s ease-in-out infinite alternate;
 }
 
-@keyframes glow {
-  from { filter: drop-shadow(0 0 3px #f1c40f); }
-  to { filter: drop-shadow(0 0 8px #f39c12); }
+@keyframes pieceFloat {
+  from { transform: translateY(0); filter: drop-shadow(0 0 4px #FFD700); }
+  to { transform: translateY(-3px); filter: drop-shadow(0 0 10px #FFA500); }
 }
 
 @keyframes shake {
