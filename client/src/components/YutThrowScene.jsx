@@ -285,8 +285,8 @@ function Walls() {
 function CameraSetup() {
   const { camera } = useThree();
   useEffect(() => {
-    camera.position.set(0, 5.5, 6.5);
-    camera.lookAt(0, 0.3, -0.5);
+    camera.position.set(0, 9, 3.5);
+    camera.lookAt(0, 0, -0.5);
   }, [camera]);
   return null;
 }
@@ -354,7 +354,7 @@ function YutThrowScene({ isVisible, phase, onResult, onAllLanded }) {
     <div className="yut-throw-3d-canvas">
       <Canvas
         shadows
-        camera={{ position: [0, 5.5, 6.5], fov: 35, near: 0.1, far: 60 }}
+        camera={{ position: [0, 9, 3.5], fov: 35, near: 0.1, far: 60 }}
         gl={{
           antialias: true, alpha: true,
           toneMapping: THREE.ACESFilmicToneMapping,
