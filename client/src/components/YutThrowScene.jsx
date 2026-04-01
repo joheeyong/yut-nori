@@ -23,6 +23,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   const firstCollisionTime = useRef(0);
   const correctionStarted = useRef(false);
   const correctionStartTime = useRef(0);
+  const stoppedTime = useRef(0); // 멈춘 시점 기록
 
   // 각 윷마다 고유한 던지기 파라미터
   const throwParams = useMemo(() => {
@@ -62,11 +63,15 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   // 현재 물리 상태 구독
   const currentPos = useRef([0, 0, 0]);
   const currentRot = useRef([0, 0, 0]);
+  const currentVel = useRef([0, 0, 0]);
+  const currentAngVel = useRef([0, 0, 0]);
 
   useEffect(() => {
     const unsubPos = api.position.subscribe(v => { currentPos.current = v; });
     const unsubRot = api.rotation.subscribe(v => { currentRot.current = v; });
-    return () => { unsubPos(); unsubRot(); };
+    const unsubVel = api.velocity.subscribe(v => { currentVel.current = v; });
+    const unsubAngVel = api.angularVelocity.subscribe(v => { currentAngVel.current = v; });
+    return () => { unsubPos(); unsubRot(); unsubVel(); unsubAngVel(); };
   }, [api]);
 
   // 재질 (환경 반사 최소화: metalness=0, envMapIntensity=0)
@@ -203,17 +208,29 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
       }
     }
 
-    // 착지 판정: 첫 충돌 후 1.2초 경과
+    // 착지 판정: 충돌 있고, 속도가 충분히 느려진 뒤 1초 대기
     if (hasThrown.current && !landedRef.current && firstCollisionTime.current > 0) {
-      const elapsed = Date.now() - firstCollisionTime.current;
-      if (elapsed > 1200) {
-        landedRef.current = true;
-        correctionStarted.current = true;
-        correctionStartTime.current = performance.now();
+      const vel = currentVel.current;
+      const angVel = currentAngVel.current;
+      const speed = Math.sqrt(vel[0] ** 2 + vel[1] ** 2 + vel[2] ** 2);
+      const angSpeed = Math.sqrt(angVel[0] ** 2 + angVel[1] ** 2 + angVel[2] ** 2);
 
-        // 물리 정지
-        api.velocity.set(0, 0, 0);
-        api.angularVelocity.set(0, 0, 0);
+      if (speed < 0.3 && angSpeed < 0.5) {
+        // 거의 멈춤 — 멈춘 시점 기록
+        if (stoppedTime.current === 0) {
+          stoppedTime.current = Date.now();
+        }
+        // 멈춘 후 1초 대기
+        if (Date.now() - stoppedTime.current > 1000) {
+          landedRef.current = true;
+          correctionStarted.current = true;
+          correctionStartTime.current = performance.now();
+          api.velocity.set(0, 0, 0);
+          api.angularVelocity.set(0, 0, 0);
+        }
+      } else {
+        // 아직 움직이고 있으면 타이머 리셋
+        stoppedTime.current = 0;
       }
     }
 
@@ -258,6 +275,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     collisionCount.current = 0;
     firstCollisionTime.current = 0;
     correctionStarted.current = false;
+    stoppedTime.current = 0;
 
     if (phase === 'idle') {
       api.position.set(0, -10, 0);
