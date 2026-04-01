@@ -15,6 +15,7 @@ function Game({ user, onLogout }) {
   const [selectedThrow, setSelectedThrow] = useState(null);
   const [movablePieces, setMovablePieces] = useState([]);
   const [gameLog, setGameLog] = useState([]);
+  const [aiThrowing, setAiThrowing] = useState(false); // AI 3D 던지기 중
   const aiTimerRef = useRef(null);
 
   const addLog = useCallback((msg) => {
@@ -23,18 +24,23 @@ function Game({ user, onLogout }) {
 
   // 윷 던지기 결과 핸들러 (3D 물리 시뮬레이션에서 결과를 받음)
   const handleThrowResult = useCallback((result) => {
+    const isAI = gameState.currentPlayer === AI;
+    const label = isAI ? 'AI' : '나';
+
     setGameState(prev => {
       const newThrows = [...prev.pendingThrows, result];
       const extra = isExtraThrow(result);
 
-      addLog(`나: ${YUT_NAMES[result]}! (${result}칸)${extra ? ' ★추가 던지기!' : ''}`);
+      addLog(`${label}: ${YUT_NAMES[result]}! (${result}칸)${extra ? ' ★추가 던지기!' : ''}`);
 
       if (extra) {
         return {
           ...prev,
           pendingThrows: newThrows,
           phase: PHASE.THROWING,
-          message: `${YUT_NAMES[result]}! 한 번 더 던지세요!`,
+          message: isAI
+            ? `AI: ${YUT_NAMES[result]}! 한 번 더!`
+            : `${YUT_NAMES[result]}! 한 번 더 던지세요!`,
         };
       }
 
@@ -42,10 +48,14 @@ function Game({ user, onLogout }) {
         ...prev,
         pendingThrows: newThrows,
         phase: PHASE.MOVING,
-        message: '이동할 말을 선택하세요.',
+        message: isAI ? 'AI가 이동 중...' : '이동할 말을 선택하세요.',
       };
     });
-  }, [addLog]);
+
+    if (isAI) {
+      setAiThrowing(false);
+    }
+  }, [addLog, gameState.currentPlayer]);
 
   // 이동할 윷 선택 시 이동 가능한 말 계산
   useEffect(() => {
@@ -97,29 +107,10 @@ function Game({ user, onLogout }) {
     if (gameState.phase === PHASE.GAME_OVER) return;
 
     if (gameState.phase === PHASE.THROWING) {
+      // AI도 3D 윷 던지기 사용
       aiTimerRef.current = setTimeout(() => {
-        const result = throwYut();
-        const extra = isExtraThrow(result);
-        addLog(`AI: ${YUT_NAMES[result]}! (${result}칸)${extra ? ' ★추가 던지기!' : ''}`);
-
-        setGameState(prev => {
-          const newThrows = [...prev.pendingThrows, result];
-          if (extra) {
-            return {
-              ...prev,
-              pendingThrows: newThrows,
-              phase: PHASE.THROWING,
-              message: `AI: ${YUT_NAMES[result]}! 한 번 더!`,
-            };
-          }
-          return {
-            ...prev,
-            pendingThrows: newThrows,
-            phase: PHASE.MOVING,
-            message: 'AI가 이동 중...',
-          };
-        });
-      }, 1000);
+        setAiThrowing(true);
+      }, 800);
     }
 
     if (gameState.phase === PHASE.MOVING) {
@@ -157,9 +148,11 @@ function Game({ user, onLogout }) {
     setSelectedThrow(null);
     setMovablePieces([]);
     setGameLog([]);
+    setAiThrowing(false);
   };
 
   const isPlayerThrowing = gameState.currentPlayer === PLAYER && gameState.phase === PHASE.THROWING;
+  const isAiThrowing = gameState.currentPlayer === AI && gameState.phase === PHASE.THROWING && aiThrowing;
   const isPlayerMoving = gameState.currentPlayer === PLAYER && gameState.phase === PHASE.MOVING;
 
   return (
@@ -188,6 +181,8 @@ function Game({ user, onLogout }) {
             <YutThrow
               onThrowResult={handleThrowResult}
               disabled={!isPlayerThrowing}
+              autoThrow={isAiThrowing}
+              currentPlayer={gameState.currentPlayer}
               pendingThrows={gameState.pendingThrows}
               isOverlay={true}
             />
