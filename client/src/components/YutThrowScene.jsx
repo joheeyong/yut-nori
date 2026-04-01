@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import { Physics, usePlane, useBox } from '@react-three/cannon';
-import { EffectComposer, N8AO, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import {
   createFlatWoodColor, createRoundWoodColor,
@@ -227,18 +227,18 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   );
 }
 
-// 바닥
+// 바닥 (물리 바디와 비주얼을 분리하여 z-fighting 방지)
 function Ground() {
-  const [ref] = usePlane(() => ({
+  usePlane(() => ({
     rotation: [-Math.PI / 2, 0, 0],
     position: [0, 0, 0],
     material: { friction: 0.9, restitution: 0.15 },
   }));
   const tex = useMemo(() => createGroundTexture(), []);
   return (
-    <mesh ref={ref} receiveShadow>
+    <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[16, 12]} />
-      <meshStandardMaterial map={tex} roughness={0.75} metalness={0.01} />
+      <meshStandardMaterial map={tex} roughness={0.85} metalness={0.0} />
     </mesh>
   );
 }
@@ -266,7 +266,6 @@ function CameraSetup() {
 function Effects() {
   return (
     <EffectComposer>
-      <N8AO aoRadius={0.4} intensity={0.5} distanceFalloff={0.3} color="black" />
       <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.4} intensity={0.1} />
       <ToneMapping />
     </EffectComposer>
