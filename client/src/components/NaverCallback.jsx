@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
 
-const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
-
 function NaverCallback({ onLogin }) {
   const [error, setError] = useState(null);
 
@@ -22,40 +19,18 @@ function NaverCallback({ onLogin }) {
       return;
     }
 
-    // Naver 토큰 교환 → 프로필 조회
-    // CORS 제한으로 프록시 또는 백엔드 필요 → 현재는 프록시 사용
     fetchNaverProfile(code, state);
 
     async function fetchNaverProfile(code, state) {
       try {
-        // Naver API는 CORS를 허용하지 않으므로 프록시 사용
-        const tokenUrl = `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`;
+        const res = await fetch(`/api/naver-login?code=${code}&state=${state}`);
+        const data = await res.json();
 
-        // CORS 프록시를 통해 토큰 요청
-        const tokenRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(tokenUrl)}`);
-        const tokenData = await tokenRes.json();
-
-        if (!tokenData.access_token) {
-          setError('토큰 발급에 실패했습니다.');
-          return;
-        }
-
-        // 프로필 조회
-        const profileRes = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://openapi.naver.com/v1/nid/me')}`, {
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        const profileData = await profileRes.json();
-
-        if (profileData.response) {
-          onLogin({
-            provider: 'naver',
-            name: profileData.response.name || profileData.response.nickname || '네이버 사용자',
-            email: profileData.response.email || '',
-            picture: profileData.response.profile_image || '',
-            token: tokenData.access_token,
-          });
+        if (res.ok && data.name) {
+          onLogin(data);
         } else {
-          setError('프로필 조회에 실패했습니다.');
+          console.error('Naver login error:', data);
+          setError(data.error || '로그인에 실패했습니다.');
         }
       } catch (err) {
         console.error('Naver login error:', err);
