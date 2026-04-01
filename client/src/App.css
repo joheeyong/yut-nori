@@ -1,38 +1,320 @@
+/* 전체 레이아웃 */
 .App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.game-container {
+  max-width: 1000px;
+  width: 100%;
+}
+
+.game-title {
+  text-align: center;
+  color: white;
+  font-size: 2.5rem;
+  margin: 0 0 20px 0;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.game-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.board-section {
+  flex-shrink: 0;
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.board-section svg {
+  display: block;
+}
+
+.control-section {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 턴 표시 */
+.turn-indicator {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+.turn-badge {
+  display: inline-block;
+  padding: 8px 24px;
+  border-radius: 20px;
+  font-size: 1.1rem;
+  font-weight: bold;
   color: white;
 }
 
-.App-link {
-  color: #61dafb;
+.turn-badge.player {
+  background: #e74c3c;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.turn-badge.ai {
+  background: #3498db;
+}
+
+/* 메시지 */
+.message-box {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #2c3e50;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 윷 던지기 */
+.yut-throw {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.yut-sticks {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.yut-result {
+  margin: 8px 0;
+  font-size: 1.2rem;
+}
+
+.yut-result.animating {
+  animation: shake 0.1s infinite;
+}
+
+.result-name {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #e74c3c;
+  margin-right: 8px;
+}
+
+.result-steps {
+  color: #666;
+}
+
+.extra-throw {
+  display: block;
+  color: #f39c12;
+  font-weight: bold;
+  margin-top: 4px;
+  animation: pulse 0.5s ease-in-out 3;
+}
+
+.throw-button {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.throw-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.5);
+}
+
+.throw-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.throw-button:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 대기 중인 윷 */
+.pending-throws {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.pending-throw-badge {
+  display: inline-block;
+  background: #f39c12;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin: 2px 3px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+/* 윷 선택 */
+.throw-selector {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.throw-select-btn {
+  background: #ecf0f1;
+  border: 2px solid #bdc3c7;
+  padding: 6px 14px;
+  border-radius: 16px;
+  margin: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.throw-select-btn.selected {
+  background: #f39c12;
+  border-color: #e67e22;
+  color: white;
+}
+
+.throw-select-btn:hover {
+  border-color: #f39c12;
+}
+
+/* 게임 로그 */
+.game-log {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.game-log h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: #2c3e50;
+}
+
+.log-list {
+  max-height: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.log-entry {
+  padding: 3px 0;
+  font-size: 0.8rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.player-log {
+  color: #e74c3c;
+}
+
+.ai-log {
+  color: #3498db;
+}
+
+/* 새 게임 버튼 */
+.new-game-btn {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.new-game-btn.small {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.new-game-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* 게임 오버 */
+.game-over-overlay {
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.game-over-content h2 {
+  font-size: 2rem;
+  margin: 0 0 8px 0;
+}
+
+.game-over-content p {
+  color: #666;
+  margin: 0 0 16px 0;
+}
+
+/* 말 애니메이션 */
+.piece-movable {
+  animation: glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from { filter: drop-shadow(0 0 3px #f1c40f); }
+  to { filter: drop-shadow(0 0 8px #f39c12); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-2deg); }
+  75% { transform: translateX(3px) rotate(2deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .game-layout {
+    flex-direction: column;
+    align-items: center;
   }
-  to {
-    transform: rotate(360deg);
+
+  .board-section svg {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+  }
+
+  .control-section {
+    min-width: unset;
+    width: 100%;
+    max-width: 400px;
   }
 }
