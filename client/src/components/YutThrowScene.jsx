@@ -266,7 +266,7 @@ function CameraSetup() {
 function Effects() {
   return (
     <EffectComposer>
-      <N8AO aoRadius={0.6} intensity={1.2} distanceFalloff={0.5} />
+      <N8AO aoRadius={0.4} intensity={0.5} distanceFalloff={0.3} color="black" />
       <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.4} intensity={0.1} />
       <ToneMapping />
     </EffectComposer>
