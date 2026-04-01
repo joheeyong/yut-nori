@@ -2,42 +2,27 @@ import React, { useState, useCallback } from 'react';
 import YutThrowScene from './YutThrowScene';
 import { YUT_NAMES, EXTRA_THROW_VALUES } from '../game/constants';
 
-function YutThrow({ onThrow, disabled, pendingThrows, isOverlay }) {
+function YutThrow({ onThrowResult, disabled, pendingThrows, isOverlay }) {
   const [phase, setPhase] = useState('idle'); // idle | throwing | result
-  const [stickResults, setStickResults] = useState([false, false, false, false]);
   const [displayResult, setDisplayResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
 
-  const getStickStates = (value) => {
-    if (!value) return [false, false, false, false];
-    const flatCount = value === 5 ? 0 : value;
-    const states = Array(4).fill(false);
-    const indices = [0, 1, 2, 3];
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-    }
-    for (let i = 0; i < flatCount; i++) {
-      states[indices[i]] = true;
-    }
-    return states;
-  };
-
+  // 던지기 시작 (결과는 아직 모름)
   const handleThrow = useCallback(() => {
     if (disabled || phase !== 'idle') return;
-
-    const result = onThrow();
-    const states = getStickStates(result);
-
-    setStickResults(states);
-    setDisplayResult(result);
+    setDisplayResult(null);
     setShowResult(false);
     setPhase('throwing');
+  }, [disabled, phase]);
 
-    return result;
-  }, [disabled, phase, onThrow]);
+  // 3D 물리에서 결과 확정
+  const handleResult = useCallback((value) => {
+    setDisplayResult(value);
+    // 게임 로직에 결과 전달
+    if (onThrowResult) onThrowResult(value);
+  }, [onThrowResult]);
 
-  // 모든 윷이 착지하면 결과 표시
+  // 모든 윷이 착지 + 결과 확정 후 표시
   const handleAllLanded = useCallback(() => {
     setShowResult(true);
     setTimeout(() => {
@@ -66,7 +51,7 @@ function YutThrow({ onThrow, disabled, pendingThrows, isOverlay }) {
       <YutThrowScene
         isVisible={isSceneVisible}
         phase={phase === 'throwing' ? 'throwing' : 'idle'}
-        stickResults={stickResults}
+        onResult={handleResult}
         onAllLanded={handleAllLanded}
       />
 
@@ -74,7 +59,7 @@ function YutThrow({ onThrow, disabled, pendingThrows, isOverlay }) {
       {showResult && displayResult && (
         <div className="yut-result-overlay">
           <span className="yut-result-name">{YUT_NAMES[displayResult]}</span>
-          <span className="yut-result-steps">{displayResult}칸</span>
+          <span className="yut-result-steps">{displayResult === 5 ? '5' : displayResult}칸</span>
           {EXTRA_THROW_VALUES.includes(displayResult) && (
             <span className="yut-result-extra">한 번 더!</span>
           )}

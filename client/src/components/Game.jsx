@@ -21,10 +21,8 @@ function Game({ user, onLogout }) {
     setGameLog(prev => [...prev.slice(-19), msg]);
   }, []);
 
-  // 윷 던지기 핸들러
-  const handleThrow = useCallback(() => {
-    const result = throwYut();
-
+  // 윷 던지기 결과 핸들러 (3D 물리 시뮬레이션에서 결과를 받음)
+  const handleThrowResult = useCallback((result) => {
     setGameState(prev => {
       const newThrows = [...prev.pendingThrows, result];
       const extra = isExtraThrow(result);
@@ -47,8 +45,6 @@ function Game({ user, onLogout }) {
         message: '이동할 말을 선택하세요.',
       };
     });
-
-    return result;
   }, [addLog]);
 
   // 이동할 윷 선택 시 이동 가능한 말 계산
@@ -190,7 +186,7 @@ function Game({ user, onLogout }) {
             />
             {/* 윷 던지기가 보드 위에서 이루어짐 */}
             <YutThrow
-              onThrow={handleThrow}
+              onThrowResult={handleThrowResult}
               disabled={!isPlayerThrowing}
               pendingThrows={gameState.pendingThrows}
               isOverlay={true}

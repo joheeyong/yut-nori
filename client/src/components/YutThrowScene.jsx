@@ -13,19 +13,16 @@ const STICK_RADIUS = 0.38;
 const STICK_HALF_HEIGHT = STICK_RADIUS * 0.55;
 
 // ============================================================
-// 물리 윷 스틱 — 단일 Box 바디
+// 물리 윷 스틱
 // ============================================================
-function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
+function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
   const landedRef = useRef(false);
   const throwTimeRef = useRef(0);
   const hasThrown = useRef(false);
   const collisionCount = useRef(0);
   const firstCollisionTime = useRef(0);
-  const correctionStarted = useRef(false);
-  const correctionStartTime = useRef(0);
-  const stoppedTime = useRef(0); // 멈춘 시점 기록
+  const stoppedTime = useRef(0);
 
-  // 각 윷마다 고유한 던지기 파라미터
   const throwParams = useMemo(() => {
     const spread = (index - 1.5) * 0.6;
     return {
@@ -60,21 +57,21 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     },
   }), useRef());
 
-  // 현재 물리 상태 구독
-  const currentPos = useRef([0, 0, 0]);
+  // 물리 상태 구독
   const currentRot = useRef([0, 0, 0]);
   const currentVel = useRef([0, 0, 0]);
   const currentAngVel = useRef([0, 0, 0]);
 
   useEffect(() => {
-    const unsubPos = api.position.subscribe(v => { currentPos.current = v; });
-    const unsubRot = api.rotation.subscribe(v => { currentRot.current = v; });
-    const unsubVel = api.velocity.subscribe(v => { currentVel.current = v; });
-    const unsubAngVel = api.angularVelocity.subscribe(v => { currentAngVel.current = v; });
-    return () => { unsubPos(); unsubRot(); unsubVel(); unsubAngVel(); };
+    const unsubs = [
+      api.rotation.subscribe(v => { currentRot.current = v; }),
+      api.velocity.subscribe(v => { currentVel.current = v; }),
+      api.angularVelocity.subscribe(v => { currentAngVel.current = v; }),
+    ];
+    return () => unsubs.forEach(u => u());
   }, [api]);
 
-  // 재질 (환경 반사 최소화: metalness=0, envMapIntensity=0)
+  // 재질
   const { flatMat, roundMat, sideMat } = useMemo(() => {
     const flatColor = createFlatWoodColor();
     const flatNormal = createNormalMapFromCanvas(flatColor, 2.5);
@@ -191,7 +188,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     return geo;
   }, []);
 
-  // 물리 시뮬레이션 + 착지 후 결과 보정
+  // 순수 물리 시뮬레이션 (보정 없음)
   useFrame(() => {
     if (phase !== 'throwing') return;
 
@@ -208,7 +205,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
       }
     }
 
-    // 착지 판정: 충돌 있고, 속도가 충분히 느려진 뒤 1초 대기
+    // 착지 판정: 충돌 후 속도가 충분히 느려지고 1초 대기
     if (hasThrown.current && !landedRef.current && firstCollisionTime.current > 0) {
       const vel = currentVel.current;
       const angVel = currentAngVel.current;
@@ -216,53 +213,24 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
       const angSpeed = Math.sqrt(angVel[0] ** 2 + angVel[1] ** 2 + angVel[2] ** 2);
 
       if (speed < 0.3 && angSpeed < 0.5) {
-        // 거의 멈춤 — 멈춘 시점 기록
         if (stoppedTime.current === 0) {
           stoppedTime.current = Date.now();
         }
-        // 멈춘 후 1초 대기
         if (Date.now() - stoppedTime.current > 1000) {
           landedRef.current = true;
-          correctionStarted.current = true;
-          correctionStartTime.current = performance.now();
           api.velocity.set(0, 0, 0);
           api.angularVelocity.set(0, 0, 0);
+
+          // 현재 회전에서 평평한 면이 위인지 판정
+          const [rx, ry, rz] = currentRot.current;
+          const euler = new THREE.Euler(rx, ry, rz);
+          const up = new THREE.Vector3(0, 1, 0).applyEuler(euler);
+          const isFlat = up.y < 0; // 로컬 Y가 아래를 향하면 → 평평한 면이 위
+
+          if (onLanded) onLanded(index, isFlat);
         }
       } else {
-        // 아직 움직이고 있으면 타이머 리셋
         stoppedTime.current = 0;
-      }
-    }
-
-    // 착지 후: 결과에 맞게 회전 보정 (0.4초에 걸쳐 부드럽게)
-    if (correctionStarted.current) {
-      const elapsed = performance.now() - correctionStartTime.current;
-      const t = Math.min(elapsed / 400, 1);
-      const ease = t < 1 ? 1 - Math.pow(1 - t, 3) : 1; // easeOutCubic
-
-      const [cx, cy, cz] = currentRot.current;
-
-      // 목표 Z 회전: isFlat=true → 평평한 면이 위 → Z=PI, isFlat=false → 둥근 면이 위 → Z=0
-      // 지오메트리에서 둥근면이 +Y, 평평한면이 -Y
-      // isFlat=true: 뒤집어야 함 → Z축 180도
-      const targetZ = isFlat ? Math.PI : 0;
-
-      // 현재 Z 회전을 목표로 보간 (X, Y는 유지하되 약간 수평으로)
-      const newZ = cx + (targetZ - cx) * ease; // X축 회전으로 뒤집기
-      const flatY = cy;
-      const flatZ = cz + (0 - cz) * ease * 0.3; // Z축은 약간만 수평으로
-
-      api.rotation.set(newZ, flatY, flatZ);
-
-      // 높이 보정 (바닥 위로)
-      const [px, py, pz] = currentPos.current;
-      const targetY = STICK_HALF_HEIGHT + 0.01;
-      const newY = py + (targetY - py) * ease;
-      api.position.set(px, newY, pz);
-
-      if (t >= 1) {
-        correctionStarted.current = false;
-        if (onLanded) onLanded(index);
       }
     }
   });
@@ -274,7 +242,6 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     landedRef.current = false;
     collisionCount.current = 0;
     firstCollisionTime.current = 0;
-    correctionStarted.current = false;
     stoppedTime.current = 0;
 
     if (phase === 'idle') {
@@ -320,16 +287,29 @@ function CameraSetup() {
   return null;
 }
 
-// 메인 씬
-function ThrowScene({ phase, stickResults, onAllLanded }) {
+// 메인 씬 — 물리 결과로 윷 값 결정
+function ThrowScene({ phase, onResult, onAllLanded }) {
   const landedCount = useRef(0);
+  const stickResults = useRef([]);
 
-  useEffect(() => { landedCount.current = 0; }, [phase]);
+  useEffect(() => {
+    landedCount.current = 0;
+    stickResults.current = [];
+  }, [phase]);
 
-  const handleLanded = useCallback(() => {
+  const handleLanded = useCallback((index, isFlat) => {
+    stickResults.current[index] = isFlat;
     landedCount.current++;
-    if (landedCount.current >= 4 && onAllLanded) onAllLanded();
-  }, [onAllLanded]);
+
+    if (landedCount.current >= 4) {
+      // 평평한 면이 위인 개수 → 윷 결과
+      const flatCount = stickResults.current.filter(Boolean).length;
+      // 도=1, 개=2, 걸=3, 윷=4, 모=5(=0개 뒤집힘)
+      const value = flatCount === 0 ? 5 : flatCount;
+      if (onResult) onResult(value);
+      if (onAllLanded) onAllLanded();
+    }
+  }, [onResult, onAllLanded]);
 
   return (
     <Physics
@@ -353,7 +333,7 @@ function ThrowScene({ phase, stickResults, onAllLanded }) {
       {[0, 1, 2, 3].map(i => (
         <PhysicsStick
           key={i} index={i} phase={phase}
-          isFlat={stickResults[i]} onLanded={handleLanded}
+          onLanded={handleLanded}
           delay={i * 0.04}
         />
       ))}
@@ -364,7 +344,7 @@ function ThrowScene({ phase, stickResults, onAllLanded }) {
   );
 }
 
-function YutThrowScene({ isVisible, phase, stickResults, onAllLanded }) {
+function YutThrowScene({ isVisible, phase, onResult, onAllLanded }) {
   if (!isVisible) return null;
   return (
     <div className="yut-throw-3d-canvas">
@@ -381,7 +361,7 @@ function YutThrowScene({ isVisible, phase, stickResults, onAllLanded }) {
         onCreated={({ gl }) => { gl.setClearColor('#3A3A3A', 1); }}
         dpr={[1, 2]}
       >
-        <ThrowScene phase={phase} stickResults={stickResults} onAllLanded={onAllLanded} />
+        <ThrowScene phase={phase} onResult={onResult} onAllLanded={onAllLanded} />
       </Canvas>
     </div>
   );
