@@ -1,91 +1,154 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { YUT_NAMES, EXTRA_THROW_VALUES } from '../game/constants';
 
-function YutThrow({ onThrow, disabled, pendingThrows }) {
+function YutThrow({ onThrow, disabled, pendingThrows, isOverlay }) {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [stickResults, setStickResults] = useState([false, false, false, false]); // true = flat
   const [displayResult, setDisplayResult] = useState(null);
+  const [showResult, setShowResult] = useState(false);
 
-  const handleThrow = () => {
+  const getStickStates = (value) => {
+    if (!value) return [false, false, false, false];
+    if (value === 5) return [false, false, false, false]; // 모: 전부 뒷면
+    // 도=1, 개=2, 걸=3, 윷=4 (앞면 개수)
+    const states = Array(4).fill(false);
+    // 랜덤 위치에 앞면 배치
+    const indices = [0, 1, 2, 3];
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    for (let i = 0; i < value; i++) {
+      states[indices[i]] = true;
+    }
+    return states;
+  };
+
+  const handleThrow = useCallback(() => {
     if (disabled || isAnimating) return;
 
     setIsAnimating(true);
+    setShowResult(false);
     setDisplayResult(null);
 
-    // 던지기 애니메이션 (윷 흔들기)
-    let count = 0;
-    const interval = setInterval(() => {
-      setDisplayResult(Math.floor(Math.random() * 5) + 1);
-      count++;
-      if (count >= 8) {
-        clearInterval(interval);
-        const result = onThrow();
-        setDisplayResult(result);
+    // 결과 미리 계산
+    const result = onThrow();
+    const states = getStickStates(result);
+
+    // 1단계: 윷 날아가는 애니메이션 (1.2초)
+    // 2단계: 착지 후 결과 표시
+    setTimeout(() => {
+      setStickResults(states);
+      setDisplayResult(result);
+
+      setTimeout(() => {
+        setShowResult(true);
         setTimeout(() => {
           setIsAnimating(false);
-        }, 500);
-      }
-    }, 100);
-  };
+        }, 1200);
+      }, 400);
+    }, 1200);
 
-  // 윷 스틱 SVG
-  const renderYutStick = (index, isFlat) => {
-    const x = 20 + index * 35;
-    return (
-      <g key={index} transform={`translate(${x}, 10)`}>
-        <rect
-          width="25"
-          height="80"
-          rx="5"
-          fill={isFlat ? '#f5e6c8' : '#8B4513'}
-          stroke="#5C3317"
-          strokeWidth="2"
-        />
-        {isFlat && (
-          <line x1="5" y1="40" x2="20" y2="40" stroke="#8B7355" strokeWidth="1" />
-        )}
-        {!isFlat && (
-          <ellipse cx="12.5" cy="40" rx="8" ry="30" fill="#A0522D" opacity="0.3" />
-        )}
-      </g>
-    );
-  };
+    return result;
+  }, [disabled, isAnimating, onThrow]);
 
-  // 결과에 따른 윷 스틱 상태 (앞면=flat 개수)
-  const getStickStates = (value) => {
-    if (!value) return [false, false, false, false];
-    const flatCount = value === 5 ? 0 : value;
-    return Array.from({ length: 4 }, (_, i) => i < flatCount);
-  };
+  // 각 윷 스틱별 랜덤 회전값 생성
+  const [rotations] = useState(() =>
+    Array.from({ length: 4 }, () => ({
+      spinX: 720 + Math.random() * 360,
+      spinY: 360 + Math.random() * 720,
+      spinZ: Math.random() * 180 - 90,
+      offsetX: Math.random() * 60 - 30,
+      offsetY: Math.random() * 30 - 15,
+      delay: Math.random() * 0.15,
+    }))
+  );
 
-  const stickStates = getStickStates(displayResult);
+  // 애니메이션 시작할 때 새 회전값
+  const [animRotations, setAnimRotations] = useState(rotations);
+  useEffect(() => {
+    if (isAnimating) {
+      setAnimRotations(
+        Array.from({ length: 4 }, () => ({
+          spinX: 720 + Math.random() * 360,
+          spinY: 360 + Math.random() * 720,
+          spinZ: Math.random() * 180 - 90,
+          offsetX: Math.random() * 60 - 30,
+          offsetY: Math.random() * 30 - 15,
+          delay: Math.random() * 0.15,
+        }))
+      );
+    }
+  }, [isAnimating]);
 
   return (
-    <div className="yut-throw">
-      <div className="yut-sticks">
-        <svg width="160" height="100" viewBox="0 0 160 100">
-          {stickStates.map((isFlat, i) => renderYutStick(i, isFlat))}
-        </svg>
-      </div>
+    <div className={`yut-throw ${isOverlay ? 'yut-throw-overlay' : ''}`}>
+      {/* 던지기 버튼 (오버레이가 아닌 경우 또는 대기 중일 때) */}
+      {!isAnimating && !showResult && (
+        <button
+          className="throw-button"
+          onClick={handleThrow}
+          disabled={disabled}
+        >
+          {disabled ? '대기 중...' : '윷 던지기'}
+        </button>
+      )}
 
-      {displayResult && (
-        <div className={`yut-result ${isAnimating ? 'animating' : ''}`}>
-          <span className="result-name">{YUT_NAMES[displayResult]}</span>
-          <span className="result-steps">({displayResult}칸)</span>
-          {EXTRA_THROW_VALUES.includes(displayResult) && !isAnimating && (
-            <span className="extra-throw">★ 한 번 더!</span>
+      {/* 3D 윷 애니메이션 영역 */}
+      {(isAnimating || showResult) && (
+        <div className="yut-3d-scene">
+          <div className="yut-sticks-3d">
+            {[0, 1, 2, 3].map((i) => {
+              const rot = animRotations[i];
+              const isFlat = stickResults[i];
+              const landed = displayResult !== null;
+
+              return (
+                <div
+                  key={i}
+                  className={`yut-stick-container ${isAnimating && !landed ? 'throwing' : ''} ${landed ? 'landed' : ''}`}
+                  style={{
+                    '--spin-x': `${rot.spinX}deg`,
+                    '--spin-y': `${rot.spinY}deg`,
+                    '--spin-z': `${rot.spinZ}deg`,
+                    '--offset-x': `${rot.offsetX}px`,
+                    '--offset-y': `${rot.offsetY}px`,
+                    '--delay': `${rot.delay}s`,
+                    '--land-rotation': isFlat ? '0deg' : '180deg',
+                    '--land-offset-x': `${(i - 1.5) * 50}px`,
+                  }}
+                >
+                  <div className={`yut-stick-3d ${landed ? (isFlat ? 'show-flat' : 'show-round') : ''}`}>
+                    {/* 앞면 (평평한 면) */}
+                    <div className="yut-face yut-flat">
+                      <div className="yut-wood-grain"></div>
+                      <div className="yut-mark"></div>
+                    </div>
+                    {/* 뒷면 (둥근 면) */}
+                    <div className="yut-face yut-round">
+                      <div className="yut-round-highlight"></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 결과 표시 */}
+          {showResult && displayResult && (
+            <div className="yut-result-overlay">
+              <span className="yut-result-name">{YUT_NAMES[displayResult]}</span>
+              <span className="yut-result-steps">{displayResult}칸</span>
+              {EXTRA_THROW_VALUES.includes(displayResult) && (
+                <span className="yut-result-extra">한 번 더!</span>
+              )}
+            </div>
           )}
         </div>
       )}
 
-      <button
-        className="throw-button"
-        onClick={handleThrow}
-        disabled={disabled || isAnimating}
-      >
-        {isAnimating ? '던지는 중...' : '윷 던지기'}
-      </button>
-
-      {pendingThrows.length > 0 && (
+      {/* 대기 중인 윷 결과 */}
+      {pendingThrows.length > 0 && !isAnimating && (
         <div className="pending-throws">
           <span>사용할 윷: </span>
           {pendingThrows.map((t, i) => (

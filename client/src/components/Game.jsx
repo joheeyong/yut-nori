@@ -57,7 +57,6 @@ function Game({ user, onLogout }) {
       const throws = gameState.pendingThrows;
       if (throws.length === 0) return;
 
-      // 이동 불가능한 경우 체크
       if (hasNoValidMoves(gameState)) {
         addLog('이동 가능한 말이 없습니다. 턴을 넘깁니다.');
         setTimeout(() => {
@@ -66,7 +65,6 @@ function Game({ user, onLogout }) {
         return;
       }
 
-      // 첫 번째 윷 결과 자동 선택
       const throwVal = throws[0];
       setSelectedThrow(throwVal);
       setMovablePieces(getMovablePieces(gameState, throwVal));
@@ -180,14 +178,24 @@ function Game({ user, onLogout }) {
       </div>
 
       <div className="game-layout">
+        {/* 보드 + 윷 던지기 오버레이 */}
         <div className="board-section">
-          <Board
-            pieces={gameState.pieces}
-            currentPlayer={gameState.currentPlayer}
-            movablePieces={movablePieces}
-            onPieceClick={handlePieceClick}
-            selectedThrow={selectedThrow}
-          />
+          <div className="board-wrapper">
+            <Board
+              pieces={gameState.pieces}
+              currentPlayer={gameState.currentPlayer}
+              movablePieces={movablePieces}
+              onPieceClick={handlePieceClick}
+              selectedThrow={selectedThrow}
+            />
+            {/* 윷 던지기가 보드 위에서 이루어짐 */}
+            <YutThrow
+              onThrow={handleThrow}
+              disabled={!isPlayerThrowing}
+              pendingThrows={gameState.pendingThrows}
+              isOverlay={true}
+            />
+          </div>
         </div>
 
         <div className="control-section">
@@ -200,12 +208,6 @@ function Game({ user, onLogout }) {
           <div className="message-box">
             {gameState.message}
           </div>
-
-          <YutThrow
-            onThrow={handleThrow}
-            disabled={!isPlayerThrowing}
-            pendingThrows={gameState.pendingThrows}
-          />
 
           {isPlayerMoving && gameState.pendingThrows.length > 1 && (
             <div className="throw-selector">
