@@ -253,25 +253,25 @@ function addNoise(ctx, w, h, amount) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-// ---- 바닥 텍스처 (짙은 녹색 돗자리 느낌) ----
+// ---- 바닥 텍스처 (짙은 차콜 직물 느낌) ----
 export function createGroundTexture(w = 1024, h = 1024) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   const rand = seededRandom(123);
 
-  // 짙은 녹색 베이스 (윷 나무색과 확실히 대비)
+  // 짙은 차콜 베이스 (무채색이라 윷에 색이 안 묻음)
   const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, '#2D5A3D');
-  grad.addColorStop(0.5, '#345E42');
-  grad.addColorStop(1, '#2A5438');
+  grad.addColorStop(0, '#3A3A3A');
+  grad.addColorStop(0.5, '#404040');
+  grad.addColorStop(1, '#383838');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // 가로 직조 패턴 (돗자리 느낌)
+  // 가로 직조 패턴
   for (let y = 0; y < h; y += 4) {
     const alpha = 0.04 + rand() * 0.06;
-    ctx.strokeStyle = `rgba(35,75,50,${alpha})`;
+    ctx.strokeStyle = `rgba(55,55,55,${alpha})`;
     ctx.lineWidth = 1 + rand() * 2;
     ctx.beginPath();
     ctx.moveTo(0, y);
@@ -281,7 +281,7 @@ export function createGroundTexture(w = 1024, h = 1024) {
   // 세로 직조 패턴
   for (let x = 0; x < w; x += 4) {
     const alpha = 0.03 + rand() * 0.05;
-    ctx.strokeStyle = `rgba(30,65,42,${alpha})`;
+    ctx.strokeStyle = `rgba(50,50,50,${alpha})`;
     ctx.lineWidth = 0.5 + rand() * 1.5;
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -292,7 +292,7 @@ export function createGroundTexture(w = 1024, h = 1024) {
   // 미세한 밝은 직조 하이라이트
   for (let y = 0; y < h; y += 8) {
     const alpha = 0.02 + rand() * 0.03;
-    ctx.strokeStyle = `rgba(80,130,90,${alpha})`;
+    ctx.strokeStyle = `rgba(70,70,70,${alpha})`;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(0, y);
