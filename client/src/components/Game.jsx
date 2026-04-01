@@ -5,7 +5,7 @@ import {
   PLAYER, AI, PHASE, YUT_NAMES,
 } from '../game/constants';
 import {
-  createInitialState, throwYut, isExtraThrow,
+  createInitialState, isExtraThrow,
   getMovablePieces, movePiece, hasNoValidMoves, skipTurn,
 } from '../game/gameLogic';
 import { aiChooseMove } from '../game/ai';
