@@ -10,7 +10,7 @@ import {
 } from '../game/gameLogic';
 import { aiChooseMove } from '../game/ai';
 
-function Game() {
+function Game({ user, onLogout }) {
   const [gameState, setGameState] = useState(createInitialState());
   const [selectedThrow, setSelectedThrow] = useState(null);
   const [movablePieces, setMovablePieces] = useState([]);
@@ -170,7 +170,14 @@ function Game() {
 
   return (
     <div className="game-container">
-      <h1 className="game-title">윷놀이</h1>
+      <div className="game-header">
+        <h1 className="game-title">윷놀이</h1>
+        <div className="user-info">
+          {user.picture && <img src={user.picture} alt="" className="user-avatar" />}
+          <span className="user-name">{user.name}</span>
+          <button className="logout-btn" onClick={onLogout}>로그아웃</button>
+        </div>
+      </div>
 
       <div className="game-layout">
         <div className="board-section">
