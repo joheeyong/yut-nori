@@ -1,5 +1,5 @@
 import {
-  PLAYER, AI, HOME, FINISHED, ROUTES, ROUTE_NAMES,
+  PLAYER, AI, HOME, ROUTES, ROUTE_NAMES,
 } from './constants';
 import { getMovablePieces, calculateNewPosition } from './gameLogic';
 

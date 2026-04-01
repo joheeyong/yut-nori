@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  NODE_POSITIONS, BOARD_LINES, HOME, FINISHED, PLAYER, AI,
+  NODE_POSITIONS, BOARD_LINES, HOME, PLAYER, AI,
 } from '../game/constants';
 
 const BOARD_SIZE = 600;

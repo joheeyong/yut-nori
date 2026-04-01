@@ -42,13 +42,6 @@ export function createInitialState() {
   };
 }
 
-// 말의 현재 경로에서 인덱스 찾기
-function findRouteIndex(piece) {
-  if (piece.position === HOME) return -1;
-  const route = ROUTES[piece.route];
-  return route.indexOf(piece.position);
-}
-
 // 말 이동 후 위치 계산
 export function calculateNewPosition(piece, steps) {
   if (piece.finished) return null;
@@ -85,8 +78,6 @@ export function calculateNewPosition(piece, steps) {
 export function getMovablePieces(state, throwValue) {
   const player = state.currentPlayer;
   const pieces = state.pieces[player];
-  const opponent = player === PLAYER ? AI : PLAYER;
-  const opponentPieces = state.pieces[opponent];
   const movable = [];
 
   for (const piece of pieces) {
