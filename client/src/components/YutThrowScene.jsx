@@ -74,17 +74,21 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     const roundNormal = createNormalMapFromCanvas(roundColor, 3.0);
     const roundRough = createRoughnessMap(512, 1024, 0.6);
 
+    const matOptions = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 };
     return {
       flatMat: new THREE.MeshStandardMaterial({
         map: flatColor, normalMap: flatNormal, roughnessMap: flatRough,
         roughness: 0.45, metalness: 0.02, normalScale: new THREE.Vector2(1.5, 1.5),
+        ...matOptions,
       }),
       roundMat: new THREE.MeshStandardMaterial({
         map: roundColor, normalMap: roundNormal, roughnessMap: roundRough,
         roughness: 0.58, metalness: 0.03, normalScale: new THREE.Vector2(2, 2),
+        ...matOptions,
       }),
       sideMat: new THREE.MeshStandardMaterial({
         color: '#9E7B4A', roughness: 0.55, metalness: 0.02,
+        ...matOptions,
       }),
     };
   }, []);
@@ -242,9 +246,12 @@ function Ground() {
   }));
   const tex = useMemo(() => createGroundTexture(), []);
   return (
-    <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+    <mesh position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow renderOrder={-1}>
       <planeGeometry args={[16, 12]} />
-      <meshStandardMaterial map={tex} roughness={0.85} metalness={0.0} />
+      <meshStandardMaterial
+        map={tex} roughness={0.85} metalness={0.0}
+        polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2}
+      />
     </mesh>
   );
 }
