@@ -81,20 +81,24 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
     const roundNormal = createNormalMapFromCanvas(roundColor, 3.0);
     const roundRough = createRoughnessMap(512, 1024, 0.6);
 
+    const common = {
+      metalness: 0.0, envMapIntensity: 0,
+      side: THREE.DoubleSide, transparent: false,
+    };
     return {
       flatMat: new THREE.MeshStandardMaterial({
         map: flatColor, normalMap: flatNormal, roughnessMap: flatRough,
-        roughness: 0.5, metalness: 0.0, normalScale: new THREE.Vector2(1.5, 1.5),
-        envMapIntensity: 0,
+        roughness: 0.5, normalScale: new THREE.Vector2(1.5, 1.5),
+        ...common,
       }),
       roundMat: new THREE.MeshStandardMaterial({
         map: roundColor, normalMap: roundNormal, roughnessMap: roundRough,
-        roughness: 0.6, metalness: 0.0, normalScale: new THREE.Vector2(2, 2),
-        envMapIntensity: 0,
+        roughness: 0.6, normalScale: new THREE.Vector2(2, 2),
+        ...common,
       }),
       sideMat: new THREE.MeshStandardMaterial({
-        color: '#9E7B4A', roughness: 0.6, metalness: 0.0,
-        envMapIntensity: 0,
+        color: '#9E7B4A', roughness: 0.6,
+        ...common,
       }),
     };
   }, []);
@@ -253,7 +257,7 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
 
   return (
     <group ref={ref}>
-      <mesh geometry={visualGeo} material={[roundMat, flatMat, sideMat]} castShadow receiveShadow />
+      <mesh geometry={visualGeo} material={[roundMat, flatMat, sideMat]} castShadow />
     </group>
   );
 }
