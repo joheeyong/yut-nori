@@ -1,7 +1,7 @@
 /* 전체 레이아웃 */
 .App {
   min-height: 100vh;
-  background: #F5F0EB;
+  background: #ffffff;
   display: flex;
   justify-content: center;
   align-items: flex-start;
