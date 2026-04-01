@@ -6,7 +6,7 @@ import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing'
 import * as THREE from 'three';
 import {
   createFlatWoodColor, createRoundWoodColor,
-  createNormalMapFromCanvas, createRoughnessMap, createGroundTexture,
+  createNormalMapFromCanvas, createRoughnessMap,
 } from '../game/textures';
 
 // 윷 크기 상수
@@ -237,23 +237,14 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   );
 }
 
-// 바닥 (물리 바디와 비주얼을 분리하여 z-fighting 방지)
+// 바닥 (물리 충돌만, 비주얼 없음 — Canvas 배경색으로 대체하여 z-fighting 원천 차단)
 function Ground() {
   usePlane(() => ({
     rotation: [-Math.PI / 2, 0, 0],
     position: [0, 0, 0],
     material: { friction: 0.9, restitution: 0.15 },
   }));
-  const tex = useMemo(() => createGroundTexture(), []);
-  return (
-    <mesh position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow renderOrder={-1}>
-      <planeGeometry args={[16, 12]} />
-      <meshStandardMaterial
-        map={tex} roughness={0.85} metalness={0.0}
-        polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2}
-      />
-    </mesh>
-  );
+  return null;
 }
 
 // 보이지 않는 벽
@@ -339,12 +330,13 @@ function YutThrowScene({ isVisible, phase, stickResults, onAllLanded }) {
         shadows
         camera={{ position: [0, 5.5, 6.5], fov: 35, near: 0.1, far: 60 }}
         gl={{
-          antialias: true, alpha: true,
+          antialias: true, alpha: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.0,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
-        style={{ background: 'transparent' }}
+        style={{ background: '#3A3A3A' }}
+        onCreated={({ gl }) => { gl.setClearColor('#3A3A3A', 1); }}
         dpr={[1, 2]}
       >
         <ThrowScene phase={phase} stickResults={stickResults} onAllLanded={onAllLanded} />
