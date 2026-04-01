@@ -1,8 +1,6 @@
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment } from '@react-three/drei';
 import { Physics, usePlane, useBox } from '@react-three/cannon';
-import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import {
   createFlatWoodColor, createRoundWoodColor,
@@ -12,7 +10,7 @@ import {
 // 윷 크기 상수
 const STICK_LENGTH = 3.2;
 const STICK_RADIUS = 0.38;
-const STICK_HALF_HEIGHT = STICK_RADIUS * 0.55; // Box 높이의 절반
+const STICK_HALF_HEIGHT = STICK_RADIUS * 0.55;
 
 // ============================================================
 // 물리 윷 스틱 — 단일 Box 바디
@@ -23,30 +21,27 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   const hasThrown = useRef(false);
   const collisionCount = useRef(0);
   const firstCollisionTime = useRef(0);
+  const correctionStarted = useRef(false);
+  const correctionStartTime = useRef(0);
 
-  // 각 윷마다 고유한 던지기 파라미터 (한번 생성)
+  // 각 윷마다 고유한 던지기 파라미터
   const throwParams = useMemo(() => {
-    const spread = (index - 1.5) * 0.6; // 초기 좌우 간격 (좁게)
+    const spread = (index - 1.5) * 0.6;
     return {
-      // 시작 위치: 손에서 같이 쥐고 있다가 던지는 느낌
       startX: spread,
       startY: 3.5,
       startZ: 2.5,
-      // 속도: 위로 + 약간 앞으로 + 약간 퍼지게
       upVelocity: 6 + Math.random() * 2,
       forwardVelocity: -2.5 - Math.random() * 1,
       sideVelocity: spread * 1.5 + (Math.random() - 0.5) * 0.8,
-      // 회전: X축(길이방향 굴러감) 위주 + 약간의 흔들림
       spinX: (8 + Math.random() * 10) * (Math.random() > 0.5 ? 1 : -1),
       spinY: (Math.random() - 0.5) * 3,
       spinZ: (Math.random() - 0.5) * 2,
-      // 초기 방향: 길이 방향을 약간 랜덤하게
       initRotY: (Math.random() - 0.5) * 0.4,
       initRotZ: (Math.random() - 0.5) * 0.2,
     };
   }, [index]);
 
-  // 단일 Box 물리 바디 (반원기둥을 납작한 박스로 근사)
   const [ref, api] = useBox(() => ({
     mass: 0.25,
     position: [0, -10, 0],
@@ -64,7 +59,17 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     },
   }), useRef());
 
-  // 재질
+  // 현재 물리 상태 구독
+  const currentPos = useRef([0, 0, 0]);
+  const currentRot = useRef([0, 0, 0]);
+
+  useEffect(() => {
+    const unsubPos = api.position.subscribe(v => { currentPos.current = v; });
+    const unsubRot = api.rotation.subscribe(v => { currentRot.current = v; });
+    return () => { unsubPos(); unsubRot(); };
+  }, [api]);
+
+  // 재질 (환경 반사 최소화: metalness=0, envMapIntensity=0)
   const { flatMat, roundMat, sideMat } = useMemo(() => {
     const flatColor = createFlatWoodColor();
     const flatNormal = createNormalMapFromCanvas(flatColor, 2.5);
@@ -74,21 +79,20 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     const roundNormal = createNormalMapFromCanvas(roundColor, 3.0);
     const roundRough = createRoughnessMap(512, 1024, 0.6);
 
-    const matOptions = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 };
     return {
       flatMat: new THREE.MeshStandardMaterial({
         map: flatColor, normalMap: flatNormal, roughnessMap: flatRough,
-        roughness: 0.45, metalness: 0.02, normalScale: new THREE.Vector2(1.5, 1.5),
-        ...matOptions,
+        roughness: 0.5, metalness: 0.0, normalScale: new THREE.Vector2(1.5, 1.5),
+        envMapIntensity: 0,
       }),
       roundMat: new THREE.MeshStandardMaterial({
         map: roundColor, normalMap: roundNormal, roughnessMap: roundRough,
-        roughness: 0.58, metalness: 0.03, normalScale: new THREE.Vector2(2, 2),
-        ...matOptions,
+        roughness: 0.6, metalness: 0.0, normalScale: new THREE.Vector2(2, 2),
+        envMapIntensity: 0,
       }),
       sideMat: new THREE.MeshStandardMaterial({
-        color: '#9E7B4A', roughness: 0.55, metalness: 0.02,
-        ...matOptions,
+        color: '#9E7B4A', roughness: 0.6, metalness: 0.0,
+        envMapIntensity: 0,
       }),
     };
   }, []);
@@ -164,7 +168,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     }
     const capCnt = idx.length - roundCnt - flatCnt;
 
-    // 비주얼을 물리 박스 중심에 맞추기 (y를 radius/2만큼 아래로 이동)
+    // 비주얼을 물리 박스 중심에 맞추기
     const yOffset = -radius / 2;
     for (let i = 1; i < verts.length; i += 3) {
       verts[i] += yOffset;
@@ -182,34 +186,65 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     return geo;
   }, []);
 
-  // 물리 시뮬레이션
-  useFrame((_, delta) => {
+  // 물리 시뮬레이션 + 착지 후 결과 보정
+  useFrame(() => {
     if (phase !== 'throwing') return;
 
     // 딜레이 후 던지기
     if (!hasThrown.current) {
-      throwTimeRef.current += delta;
+      throwTimeRef.current += 1 / 60;
       if (throwTimeRef.current >= delay) {
         hasThrown.current = true;
         const p = throwParams;
-
-        // 시작 위치 (손에 쥔 상태)
         api.position.set(p.startX, p.startY, p.startZ);
         api.rotation.set(0, p.initRotY, p.initRotZ);
-
-        // 던지기: 속도 + 회전
         api.velocity.set(p.sideVelocity, p.upVelocity, p.forwardVelocity);
         api.angularVelocity.set(p.spinX, p.spinY, p.spinZ);
       }
     }
 
-    // 착지 판정: 첫 충돌 후 일정 시간 경과
+    // 착지 판정: 첫 충돌 후 1.2초 경과
     if (hasThrown.current && !landedRef.current && firstCollisionTime.current > 0) {
       const elapsed = Date.now() - firstCollisionTime.current;
-      if (elapsed > 1500) {
+      if (elapsed > 1200) {
         landedRef.current = true;
+        correctionStarted.current = true;
+        correctionStartTime.current = performance.now();
+
+        // 물리 정지
         api.velocity.set(0, 0, 0);
         api.angularVelocity.set(0, 0, 0);
+      }
+    }
+
+    // 착지 후: 결과에 맞게 회전 보정 (0.4초에 걸쳐 부드럽게)
+    if (correctionStarted.current) {
+      const elapsed = performance.now() - correctionStartTime.current;
+      const t = Math.min(elapsed / 400, 1);
+      const ease = t < 1 ? 1 - Math.pow(1 - t, 3) : 1; // easeOutCubic
+
+      const [cx, cy, cz] = currentRot.current;
+
+      // 목표 Z 회전: isFlat=true → 평평한 면이 위 → Z=PI, isFlat=false → 둥근 면이 위 → Z=0
+      // 지오메트리에서 둥근면이 +Y, 평평한면이 -Y
+      // isFlat=true: 뒤집어야 함 → Z축 180도
+      const targetZ = isFlat ? Math.PI : 0;
+
+      // 현재 Z 회전을 목표로 보간 (X, Y는 유지하되 약간 수평으로)
+      const newZ = cx + (targetZ - cx) * ease; // X축 회전으로 뒤집기
+      const flatY = cy;
+      const flatZ = cz + (0 - cz) * ease * 0.3; // Z축은 약간만 수평으로
+
+      api.rotation.set(newZ, flatY, flatZ);
+
+      // 높이 보정 (바닥 위로)
+      const [px, py, pz] = currentPos.current;
+      const targetY = STICK_HALF_HEIGHT + 0.01;
+      const newY = py + (targetY - py) * ease;
+      api.position.set(px, newY, pz);
+
+      if (t >= 1) {
+        correctionStarted.current = false;
         if (onLanded) onLanded(index);
       }
     }
@@ -222,6 +257,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
     landedRef.current = false;
     collisionCount.current = 0;
     firstCollisionTime.current = 0;
+    correctionStarted.current = false;
 
     if (phase === 'idle') {
       api.position.set(0, -10, 0);
@@ -237,7 +273,7 @@ function PhysicsStick({ index, phase, isFlat, onLanded, delay = 0 }) {
   );
 }
 
-// 바닥 (물리 충돌만, 비주얼 없음 — Canvas 배경색으로 대체하여 z-fighting 원천 차단)
+// 바닥 (물리 충돌만)
 function Ground() {
   usePlane(() => ({
     rotation: [-Math.PI / 2, 0, 0],
@@ -266,16 +302,6 @@ function CameraSetup() {
   return null;
 }
 
-// 포스트 프로세싱
-function Effects() {
-  return (
-    <EffectComposer>
-      <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.4} intensity={0.1} />
-      <ToneMapping />
-    </EffectComposer>
-  );
-}
-
 // 메인 씬
 function ThrowScene({ phase, stickResults, onAllLanded }) {
   const landedCount = useRef(0);
@@ -294,17 +320,17 @@ function ThrowScene({ phase, stickResults, onAllLanded }) {
       defaultContactMaterial={{ friction: 0.8, restitution: 0.15 }}
     >
       <CameraSetup />
-      <ambientLight intensity={0.35} color="#ffeedd" />
+      <ambientLight intensity={0.5} color="#ffeedd" />
       <directionalLight
-        position={[5, 12, 8]} intensity={1.5} castShadow color="#fff8f0"
+        position={[5, 12, 8]} intensity={1.8} castShadow color="#fff8f0"
         shadow-mapSize-width={2048} shadow-mapSize-height={2048}
         shadow-camera-far={30}
         shadow-camera-left={-8} shadow-camera-right={8}
         shadow-camera-top={8} shadow-camera-bottom={-8}
         shadow-bias={-0.0005}
       />
-      <directionalLight position={[-3, 5, -5]} intensity={0.2} color="#e0e8ff" />
-      <hemisphereLight args={['#ffeebb', '#445566', 0.3]} />
+      <directionalLight position={[-3, 5, -5]} intensity={0.3} color="#e0e8ff" />
+      <hemisphereLight args={['#ffeebb', '#887766', 0.4]} />
 
       {[0, 1, 2, 3].map(i => (
         <PhysicsStick
@@ -316,8 +342,6 @@ function ThrowScene({ phase, stickResults, onAllLanded }) {
 
       <Ground />
       <Walls />
-      <Environment preset="apartment" />
-      <Effects />
     </Physics>
   );
 }
