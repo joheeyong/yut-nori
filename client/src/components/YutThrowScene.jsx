@@ -221,16 +221,26 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
           stoppedTime.current = Date.now();
         }
         if (Date.now() - stoppedTime.current > 1000) {
+          // 현재 회전에서 로컬 Y축의 월드 방향 확인
+          const [rx, ry, rz] = currentRot.current;
+          const euler = new THREE.Euler(rx, ry, rz);
+          const up = new THREE.Vector3(0, 1, 0).applyEuler(euler);
+
+          // 애매한 방향 체크: |up.y| < 0.4이면 옆으로 누운 상태
+          if (Math.abs(up.y) < 0.4) {
+            // 살짝 밀어서 한쪽으로 넘기기
+            const nudgeDir = up.y >= 0 ? 1 : -1;
+            api.angularVelocity.set(nudgeDir * 3, 0, 0);
+            api.velocity.set(0, 0.5, 0);
+            stoppedTime.current = 0; // 타이머 리셋, 다시 멈출 때까지 대기
+            return;
+          }
+
           landedRef.current = true;
           api.velocity.set(0, 0, 0);
           api.angularVelocity.set(0, 0, 0);
 
-          // 현재 회전에서 평평한 면이 위인지 판정
-          const [rx, ry, rz] = currentRot.current;
-          const euler = new THREE.Euler(rx, ry, rz);
-          const up = new THREE.Vector3(0, 1, 0).applyEuler(euler);
           const isFlat = up.y < 0; // 로컬 Y가 아래를 향하면 → 평평한 면이 위
-
           if (onLanded) onLanded(index, isFlat);
         }
       } else {
