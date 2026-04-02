@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import { Physics, usePlane, useBox } from '@react-three/cannon';
 import * as THREE from 'three';
 import {
@@ -22,6 +23,7 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
   const collisionCount = useRef(0);
   const firstCollisionTime = useRef(0);
   const stoppedTime = useRef(0);
+  const [landResult, setLandResult] = useState(null); // null | 'flat' | 'round'
 
   const throwParams = useMemo(() => {
     const spread = (index - 1.5) * 0.6;
@@ -248,6 +250,7 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
           const isFlat = Math.abs(up.y) < 0.4
             ? Math.random() > 0.5
             : up.y < 0;
+          setLandResult(isFlat ? 'flat' : 'round');
           if (onLanded) onLanded(index, isFlat);
         }
       } else {
@@ -264,6 +267,7 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
     collisionCount.current = 0;
     firstCollisionTime.current = 0;
     stoppedTime.current = 0;
+    setLandResult(null);
 
     if (phase === 'idle') {
       api.position.set(0, -10, 0);
@@ -275,6 +279,22 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
   return (
     <group ref={ref}>
       <mesh geometry={visualGeo} material={[roundMat, flatMat, sideMat]} castShadow />
+      {landResult && (
+        <Html position={[0, 1.2, 0]} center style={{ pointerEvents: 'none' }}>
+          <div style={{
+            background: landResult === 'flat' ? '#e74c3c' : '#3498db',
+            color: 'white',
+            padding: '3px 10px',
+            borderRadius: '12px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}>
+            {landResult === 'flat' ? '뒤집힘' : '엎음'}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
