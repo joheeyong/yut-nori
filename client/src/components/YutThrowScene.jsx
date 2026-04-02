@@ -209,30 +209,34 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
       }
     }
 
-    // 착지 판정: 충돌 후 속도가 충분히 느려지고 1초 대기
+    // 착지 판정
     if (hasThrown.current && !landedRef.current && firstCollisionTime.current > 0) {
+      const timeSinceCollision = Date.now() - firstCollisionTime.current;
       const vel = currentVel.current;
       const angVel = currentAngVel.current;
       const speed = Math.sqrt(vel[0] ** 2 + vel[1] ** 2 + vel[2] ** 2);
       const angSpeed = Math.sqrt(angVel[0] ** 2 + angVel[1] ** 2 + angVel[2] ** 2);
 
-      if (speed < 0.3 && angSpeed < 0.5) {
+      // 조건: 속도 느리거나, 충돌 후 6초 경과 (안전장치)
+      const isSlow = speed < 0.5 && angSpeed < 1.0;
+      const isTimeout = timeSinceCollision > 6000;
+
+      if (isSlow || isTimeout) {
         if (stoppedTime.current === 0) {
           stoppedTime.current = Date.now();
         }
-        if (Date.now() - stoppedTime.current > 1000) {
-          // 현재 회전에서 로컬 Y축의 월드 방향 확인
+        // 멈춘 후 0.8초 대기 (타임아웃은 즉시 판정)
+        if (isTimeout || Date.now() - stoppedTime.current > 800) {
           const [rx, ry, rz] = currentRot.current;
           const euler = new THREE.Euler(rx, ry, rz);
           const up = new THREE.Vector3(0, 1, 0).applyEuler(euler);
 
-          // 애매한 방향 체크: |up.y| < 0.4이면 옆으로 누운 상태
-          if (Math.abs(up.y) < 0.4) {
-            // 살짝 밀어서 한쪽으로 넘기기
+          // 애매한 방향 + 아직 타임아웃 아니면 넘기기
+          if (Math.abs(up.y) < 0.4 && !isTimeout) {
             const nudgeDir = up.y >= 0 ? 1 : -1;
             api.angularVelocity.set(nudgeDir * 3, 0, 0);
             api.velocity.set(0, 0.5, 0);
-            stoppedTime.current = 0; // 타이머 리셋, 다시 멈출 때까지 대기
+            stoppedTime.current = 0;
             return;
           }
 
@@ -240,7 +244,10 @@ function PhysicsStick({ index, phase, onLanded, delay = 0 }) {
           api.velocity.set(0, 0, 0);
           api.angularVelocity.set(0, 0, 0);
 
-          const isFlat = up.y < 0; // 로컬 Y가 아래를 향하면 → 평평한 면이 위
+          // 애매한 경우 랜덤 판정, 아니면 실제 방향으로 판정
+          const isFlat = Math.abs(up.y) < 0.4
+            ? Math.random() > 0.5
+            : up.y < 0;
           if (onLanded) onLanded(index, isFlat);
         }
       } else {
